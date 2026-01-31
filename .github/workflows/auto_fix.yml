@@ -41,5 +41,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           RUN_ID: ${{ github.event.workflow_run.id || '' }}
+          PR_BRANCH: ${{ github.event.workflow_run.head_branch || github.event.issue.pull_request.head.ref }}
         run: |
           python agent.py
+
