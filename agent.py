@@ -40,6 +40,20 @@ class GitHubTool:
             logs += zip_file.read(name).decode("utf-8", errors="ignore")
 
         return logs
+    
+    def has_approval_comment(self) -> bool:
+        run_url = f"https://api.github.com/repos/{self.repo}/actions/runs/{self.run_id}"
+        run = requests.get(run_url, headers=self.headers).json()
+
+        if not run.get("pull_requests"):
+            return False
+
+        pr_number = run["pull_requests"][0]["number"]
+        comments_url = f"https://api.github.com/repos/{self.repo}/issues/{pr_number}/comments"
+        comments = requests.get(comments_url, headers=self.headers).json()
+
+        return any("/ci-fix-approve" in c["body"] for c in comments)
+
 
     def post_pr_comment(self, body: str):
         """
@@ -72,6 +86,11 @@ class FilesystemTool:
         Apply a minimal patch to requirements.txt
         (Maps to Filesystem MCP Server: apply patch)
         """
+
+        # HARD SAFETY CHECK
+        if not dependency.isidentifier() and "-" not in dependency:
+            raise ValueError(f"Invalid dependency name: {dependency}")
+        
         req = Path("requirements.txt")
         content = req.read_text()
 
@@ -113,16 +132,31 @@ class CIFixAgent:
         self.github = GitHubTool()
         self.fs = FilesystemTool()
 
+    # def diagnose(self, logs: str):
+    #     """
+    #     Decide WHAT is wrong.
+    #     (Pure reasoning, no side effects)
+    #     """
+    #     if "ModuleNotFoundError" in logs:
+    #         missing = logs.split("No module named")[-1].strip().strip("'\"")
+    #         return {
+    #             "type": "missing_dependency",
+    #             "dependency": missing
+    #         }
+
+    #     return {"type": "unknown"}
+
     def diagnose(self, logs: str):
         """
         Decide WHAT is wrong.
         (Pure reasoning, no side effects)
         """
-        if "ModuleNotFoundError" in logs:
-            missing = logs.split("No module named")[-1].strip().strip("'\"")
+        match = re.search(r"No module named ['\"]([a-zA-Z0-9_.-]+)['\"]", logs)
+        if match:
+            dep = match.group(1)
             return {
                 "type": "missing_dependency",
-                "dependency": missing
+                "dependency": dep
             }
 
         return {"type": "unknown"}
@@ -132,30 +166,50 @@ class CIFixAgent:
         Decide HOW to fix it.
         (Calls MCP tools)
         """
+        # if diagnosis["type"] == "missing_dependency":
+        #     dep = diagnosis["dependency"]
+        #     self.fs.add_dependency(dep)
+        #     commit_and_push_fix(dep)
+
+        #     comment = f"""
+        #     🤖 **CI Janitor Report**
+
+        #     **Error Detected**
+        #     - Missing Python dependency: `{dep}`
+
+        #     **Root Cause**
+        #     - Dependency not listed in `requirements.txt`
+
+        #     **Action Taken**
+        #     - Added `{dep}` to `requirements.txt`
+        #     - Committed fix to PR branch
+
+        #     **Result**
+        #     - CI automatically re-triggered
+        #     """
+        #     self.github.post_pr_comment(comment)
+
+        #     print(f"✔ Fixed and committed missing dependency: {dep}")
+
         if diagnosis["type"] == "missing_dependency":
             dep = diagnosis["dependency"]
-            self.fs.add_dependency(dep)
-            commit_and_push_fix(dep)
 
             comment = f"""
-            🤖 **CI Janitor Report**
+        🤖 **CI Janitor Report**
 
-            **Error Detected**
-            - Missing Python dependency: `{dep}`
+        **Error Detected**
+        - Missing Python dependency: `{dep}`
 
-            **Root Cause**
-            - Dependency not listed in `requirements.txt`
+        **Proposed Fix**
+        - Add `{dep}` to `requirements.txt`
 
-            **Action Taken**
-            - Added `{dep}` to `requirements.txt`
-            - Committed fix to PR branch
+        **Action Required**
+        - Comment `/ci-fix-approve` to apply this fix automatically
+        """
 
-            **Result**
-            - CI automatically re-triggered
-            """
             self.github.post_pr_comment(comment)
+            print("Awaiting human approval.")
 
-            print(f"✔ Fixed and committed missing dependency: {dep}")
 
     def run(self):
         logs = self.github.get_ci_logs()
