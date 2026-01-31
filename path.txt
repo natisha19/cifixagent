@@ -1,0 +1,7 @@
+demorepo/
+├── agent.py
+├── requirements.txt
+└── .github/
+    └── workflows/
+        ├── ci.yml
+        └── auto_fix.yml
