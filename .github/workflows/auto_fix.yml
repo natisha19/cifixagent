@@ -22,9 +22,7 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Debug GITHUB_TOKEN
-        run: |
-          echo "Token length: ${#GITHUB_TOKEN}"
+      
 
 
       - name: Run Fix Agent
@@ -34,6 +32,10 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           python agent.py
+
+      - name: Debug GITHUB_TOKEN
+        run: |
+          echo "Token length: ${#GITHUB_TOKEN}"
 
       - name: Debug token
         run: |
