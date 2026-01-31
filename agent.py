@@ -53,6 +53,25 @@ class GitHubTool:
         comments = requests.get(comments_url, headers=self.headers).json()
 
         return any("/ci-fix-approve" in c["body"] for c in comments)
+    
+    def get_approved_dependency(self) -> str | None:
+        run_url = f"https://api.github.com/repos/{self.repo}/actions/runs/{self.run_id}"
+        run = requests.get(run_url, headers=self.headers).json()
+
+        if not run.get("pull_requests"):
+            return None
+
+        pr_number = run["pull_requests"][0]["number"]
+        comments_url = f"https://api.github.com/repos/{self.repo}/issues/{pr_number}/comments"
+        comments = requests.get(comments_url, headers=self.headers).json()
+
+        for c in comments:
+            if "/ci-fix-approve" in c["body"]:
+                for prev in comments:
+                    if "ci-fix:dependency=" in prev["body"]:
+                        return prev["body"].split("ci-fix:dependency=")[-1].split("-->")[0].strip()
+        return None
+
 
 
     def post_pr_comment(self, body: str):
@@ -75,6 +94,7 @@ class GitHubTool:
             headers=self.headers,
             json={"body": body}
         )
+
 
 
 # =========================
@@ -212,6 +232,12 @@ class CIFixAgent:
 
 
     def run(self):
+        approved_dep = self.github.get_approved_dependency()
+        if approved_dep:
+            self.fs.add_dependency(approved_dep)
+            commit_and_push_fix(approved_dep)
+            return
+
         logs = self.github.get_ci_logs()
         diagnosis = self.diagnose(logs)
         self.act(diagnosis)
