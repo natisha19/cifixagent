@@ -234,9 +234,11 @@ class CIFixAgent:
     def run(self):
         approved_dep = self.github.get_approved_dependency()
         if approved_dep:
+            print(f"Applying approved fix: {approved_dep}")
             self.fs.add_dependency(approved_dep)
             commit_and_push_fix(approved_dep)
             return
+
 
         logs = self.github.get_ci_logs()
         diagnosis = self.diagnose(logs)
