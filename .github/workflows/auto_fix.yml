@@ -3,8 +3,11 @@ name: CI Fix Agent
 on:
   workflow_run:
     workflows: ["CI"]
-    types:
-      - completed
+    types: [completed]
+
+  issue_comment:
+    types: [created]
+
 
 permissions:
   actions: read
