@@ -1,6 +1,1 @@
 pytest
-
-
-requests
-flask
-utils
