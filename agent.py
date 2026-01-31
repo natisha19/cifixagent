@@ -4,6 +4,12 @@ import zipfile
 import io
 from pathlib import Path
 
+import subprocess
+
+def run_git(cmd):
+    subprocess.run(cmd, check=True)
+
+
 # =========================
 # GitHub MCP Tool
 # =========================
@@ -70,6 +76,26 @@ class FilesystemTool:
         if dependency not in content:
             req.write_text(content + f"\n{dependency}\n")
 
+def commit_and_push_fix(dep: str):
+    # Configure git identity for the bot
+    run_git(["git", "config", "user.name", "ci-janitor-bot"])
+    run_git(["git", "config", "user.email", "ci-janitor@users.noreply.github.com"])
+
+    # Check if there are changes
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        capture_output=True,
+        text=True
+    ).stdout.strip()
+
+    if not status:
+        print("No changes detected, skipping commit.")
+        return
+
+    run_git(["git", "add", "requirements.txt"])
+    run_git(["git", "commit", "-m", f"ci-fix: add missing dependency {dep}"])
+    run_git(["git", "push"])
+
 
 # =========================
 # Agent Reasoning Core
@@ -101,27 +127,27 @@ class CIFixAgent:
         if diagnosis["type"] == "missing_dependency":
             dep = diagnosis["dependency"]
             self.fs.add_dependency(dep)
+            commit_and_push_fix(dep)
 
             comment = f"""
-🤖 **CI Janitor Report**
+            🤖 **CI Janitor Report**
 
-**Error Detected**
-- Missing Python dependency: `{dep}`
+            **Error Detected**
+            - Missing Python dependency: `{dep}`
 
-**Root Cause**
-- Dependency not listed in `requirements.txt`
+            **Root Cause**
+            - Dependency not listed in `requirements.txt`
 
-**Proposed Fix**
-- Added `{dep}` to dependencies
+            **Action Taken**
+            - Added `{dep}` to `requirements.txt`
+            - Committed fix to PR branch
 
-**Status**
-- Awaiting human approval before merge
-"""
+            **Result**
+            - CI automatically re-triggered
+            """
             self.github.post_pr_comment(comment)
 
-            print(f"✔ Proposed fix for missing dependency: {dep}")
-        else:
-            print("No fixable CI hygiene issue detected.")
+            print(f"✔ Fixed and committed missing dependency: {dep}")
 
     def run(self):
         logs = self.github.get_ci_logs()
