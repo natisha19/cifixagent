@@ -16,14 +16,20 @@ permissions:
 
 jobs:
   fix:
-    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
-    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'failure')
+      ||
+      (github.event_name == 'issue_comment' &&
+       contains(github.event.comment.body, '/ci-fix-approve'))
+
 
     steps:
       - name: Checkout PR commit
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.pull_request.head.ref || github.event.workflow_run.head_branch }}
+
 
       - name: Run Fix Agent
         env:
@@ -32,5 +38,6 @@ jobs:
           REPO: ${{ github.repository }}
           PR_BRANCH: ${{ github.event.workflow_run.pull_requests[0].head.ref }}
 
+          
         run: |
           python agent.py
