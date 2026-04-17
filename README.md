@@ -116,29 +116,6 @@ cifixagent/
 
 ---
 
-## Setup
-
-### 1. Clone the repo
-
-```bash
-git clone https://github.com/your-username/cifixagent.git
-cd cifixagent
-```
-
-### 2. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Run tests
-
-```bash
-pytest
-```
-
----
-
 ## GitHub Actions Setup
 
 The agent requires:
@@ -188,7 +165,7 @@ Reply with /ci-janitor approve to apply the fix.
 ## Key Features
 
 *  **Log-driven diagnosis**
-*  **Deterministic reasoning (no hardcoding)**
+*  **Deterministic reasoning**
 *  **Human-in-the-loop approval**
 *  **Automatic CI recovery**
 *  **Modular MCP-style architecture**
@@ -209,7 +186,7 @@ Reply with /ci-janitor approve to apply the fix.
 ## Why This Matters
 
 CI failures slow down development workflows.
-This agent reduces friction by **closing the loop between failure and fix** — safely and automatically.
+This agent reduces friction by **closing the loop between failure and fix** safely and automatically.
 
 ## Authored by Team DietCode
 
