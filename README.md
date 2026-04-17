@@ -12,7 +12,7 @@ This project automates that loop:
 2. Analyze logs
 3. Propose fix on PR
 4. Wait for approval
-5. Apply fix automatically
+5. Apply fix automatically 
 6. Re-run CI
 
 ✅ Reduces debugging time
