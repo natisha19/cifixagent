@@ -1,2 +1,3 @@
-pytest
-# requests is intentionally missing
+# CI Janitor runtime needs only the Python standard library.
+# Test/dev tools for local and CI runs:
+pytest>=8.0
