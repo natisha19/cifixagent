@@ -2,7 +2,7 @@
 
 Security-conscious Python CI remediation assistant for **common dependency/environment failures**.
 
-CI Janitor diagnoses resolver and import failures for `requirements.txt` and `pyproject.toml` + `uv.lock` projects, explains direct and resolved dependency impact, proposes the **smallest safe patch**, validates it in an isolated workspace, and **requires authorized human approval** before opening a remediation PR.
+CI Fix Agent diagnoses resolver and import failures for `requirements.txt` and `pyproject.toml` + `uv.lock` projects, explains direct and resolved dependency impact, proposes the **smallest safe patch**, validates it in an isolated workspace, and **requires authorized human approval** before opening a remediation PR.
 
 ---
 
