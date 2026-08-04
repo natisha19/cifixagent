@@ -1,0 +1,88 @@
+name: CI Janitor Apply
+
+# Separate apply workflow. Trusted agent code comes from the default branch.
+# Requires an exact approval comment from a write+ collaborator on a same-repo PR.
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ci-janitor-apply-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    if: >-
+      github.event.issue.pull_request &&
+      github.event.comment.body == '/ci-janitor approve'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Resolve PR metadata
+        id: pr
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}"
+          json=$(curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" "$api")
+          head_ref=$(printf '%s' "$json" | python -c "import sys,json; print(json.load(sys.stdin)['head']['ref'])")
+          head_repo=$(printf '%s' "$json" | python -c "import sys,json; print(json.load(sys.stdin)['head']['repo']['full_name'])")
+          base_repo=$(printf '%s' "$json" | python -c "import sys,json; print(json.load(sys.stdin)['base']['repo']['full_name'])")
+          echo "head_ref=$head_ref" >> "$GITHUB_OUTPUT"
+          echo "head_repo=$head_repo" >> "$GITHUB_OUTPUT"
+          echo "base_repo=$base_repo" >> "$GITHUB_OUTPUT"
+          if [ "$head_repo" != "$base_repo" ]; then
+            echo "Fork PRs are refused in MVP."
+            exit 1
+          fi
+          if [ "$head_repo" != "$REPO" ]; then
+            echo "Refusing to push outside the current repository."
+            exit 1
+          fi
+
+      - name: Checkout trusted agent (default branch)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: agent
+
+      - name: Checkout same-repo PR branch as editable data
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.pr.outputs.head_repo }}
+          ref: ${{ steps.pr.outputs.head_ref }}
+          path: pr-workspace
+          token: ${{ github.token }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install trusted agent package
+        working-directory: agent
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Apply approved fix
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          PR_BRANCH: ${{ steps.pr.outputs.head_ref }}
+          BOT_BRANCH: ci-janitor/${{ github.event.issue.number }}-${{ github.run_id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENTER_LOGIN: ${{ github.event.comment.user.login }}
+          REPO_ROOT: ${{ github.workspace }}/pr-workspace
+          CI_JANITOR_VALIDATE_CMD: python -m pytest
+        # Run from trusted checkout so a PR cannot shadow the cifixagent module.
+        working-directory: agent
+        run: python -m cifixagent.workflow apply
