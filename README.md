@@ -1,4 +1,4 @@
-# CI Janitor
+# CI Fix Agent
 
 Security-conscious Python CI remediation assistant for **common dependency/environment failures**.
 
